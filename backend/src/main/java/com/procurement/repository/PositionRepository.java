@@ -1,0 +1,12 @@
+package com.procurement.repository;
+
+import com.procurement.model.Position;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+import java.util.Optional;
+
+public interface PositionRepository extends JpaRepository<Position, Long> {
+    List<Position> findByCompany_CompanyIdAndStatus(Long companyId, String status);
+    List<Position> findByCompany_CompanyId(Long companyId);
+    Optional<Position> findByCompany_CompanyIdAndPositionCode(Long companyId, String positionCode);
+}

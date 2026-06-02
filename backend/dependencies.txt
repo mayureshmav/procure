@@ -1,0 +1,26 @@
+
+The following files have been resolved:
+   org.springframework.boot:spring-boot-starter-web:jar:3.2.3:compile[36m -- module spring.boot.starter.web[0;1m [auto][m
+   org.springframework.boot:spring-boot-starter-data-jpa:jar:3.2.3:compile[36m -- module spring.boot.starter.data.jpa[0;1m [auto][m
+   org.springframework.boot:spring-boot-starter-security:jar:3.2.3:compile[36m -- module spring.boot.starter.security[0;1m [auto][m
+   org.springframework.boot:spring-boot-starter-mail:jar:3.2.3:compile[36m -- module spring.boot.starter.mail[0;1m [auto][m
+   org.springframework.boot:spring-boot-starter-validation:jar:3.2.3:compile[36m -- module spring.boot.starter.validation[0;1m [auto][m
+   org.springframework.boot:spring-boot-starter-actuator:jar:3.2.3:compile[36m -- module spring.boot.starter.actuator[0;1m [auto][m
+   com.h2database:h2:jar:2.2.224:runtime[36m -- module com.h2database[0;1m [auto][m
+   org.postgresql:postgresql:jar:42.6.1:runtime[36m -- module org.postgresql.jdbc[0;1m [auto][m
+   org.flywaydb:flyway-core:jar:9.22.3:compile[36m -- module org.flywaydb.core[0;1m [auto][m
+   io.jsonwebtoken:jjwt-api:jar:0.12.5:compile[36m -- module jjwt.api[0;1;33m (auto)[m
+   io.jsonwebtoken:jjwt-impl:jar:0.12.5:runtime[36m -- module jjwt.impl[0;1;33m (auto)[m
+   io.jsonwebtoken:jjwt-jackson:jar:0.12.5:runtime[36m -- module jjwt.jackson[0;1;33m (auto)[m
+   com.opencsv:opencsv:jar:5.9:compile[36m -- module com.opencsv[0;1m [auto][m
+   org.apache.poi:poi:jar:5.2.5:compile[36m -- module org.apache.poi.poi[m
+   org.apache.poi:poi-ooxml:jar:5.2.5:compile[36m -- module org.apache.poi.ooxml[m
+   com.github.mwiede:jsch:jar:0.2.17:compile[36m -- module com.jcraft.jsch[m
+   org.mapstruct:mapstruct:jar:1.5.5.Final:compile[36m -- module org.mapstruct[0;1m [auto][m
+   org.mapstruct:mapstruct-processor:jar:1.5.5.Final:provided[36m -- module org.mapstruct.processor[0;1m [auto][m
+   org.springdoc:springdoc-openapi-starter-webmvc-ui:jar:2.3.0:compile[36m -- module org.springdoc.openapi.ui[0;1m [auto][m
+   org.projectlombok:lombok:jar:1.18.38:compile (optional)[36m -- module lombok[m
+   org.springframework.boot:spring-boot-devtools:jar:3.2.3:runtime (optional)[36m -- module spring.boot.devtools[0;1m [auto][m
+   org.springframework.boot:spring-boot-starter-test:jar:3.2.3:test[36m -- module spring.boot.starter.test[0;1m [auto][m
+   org.springframework.security:spring-security-test:jar:6.2.2:test[36m -- module spring.security.test[0;1m [auto][m
+
