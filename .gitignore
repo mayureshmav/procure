@@ -1,0 +1,43 @@
+# Node
+node_modules/
+**/node_modules/
+frontend/node_modules/
+
+# Next.js
+.next/
+/.next
+/.next/**
+
+# Build
+target/
+build/
+dist/
+
+# IDE / OS
+.DS_Store
+.vscode/
+.idea/
+*.iml
+
+# Logs and env
+*.log
+.env
+.env.local
+.env.*.local
+
+# Maven / Java
+*.class
+*.jar
+*.war
+*.ear
+**/target/
+
+# Local DB and data
+backend/data/
+*.mv.db
+*.trace.db
+
+# Misc
+coverage/
+coverage-reports/
+README.md
