@@ -47,6 +47,11 @@ public class Requisition {
     @Builder.Default
     private List<RequisitionLine> lines = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"companies", "hibernateLazyInitializer"})
+    private Company company;
+
     public enum ReqStatus {
         DRAFT, SUBMITTED, APPROVED, REJECTED, CONVERTED
     }

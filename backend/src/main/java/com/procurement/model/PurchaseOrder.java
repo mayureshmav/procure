@@ -53,6 +53,11 @@ public class PurchaseOrder {
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime submittedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"companies", "hibernateLazyInitializer"})
+    private Company company;
+
     // ── Blanket PO fields ─────────────────────────────────────────────────────
     @Column(precision = 14, scale = 2)
     private BigDecimal blanketMaxAmount;

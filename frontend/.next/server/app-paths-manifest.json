@@ -1,3 +1,16 @@
 {
-  "/login/page": "app/login/page.js"
+  "/purchase-orders/page": "app/purchase-orders/page.js",
+  "/vendors/page": "app/vendors/page.js",
+  "/page": "app/page.js",
+  "/org/structure/page": "app/org/structure/page.js",
+  "/persons/page": "app/persons/page.js",
+  "/logs/page": "app/logs/page.js",
+  "/integration/punchout/page": "app/integration/punchout/page.js",
+  "/integration/results/page": "app/integration/results/page.js",
+  "/integration/mappings/page": "app/integration/mappings/page.js",
+  "/integration/settings/page": "app/integration/settings/page.js",
+  "/inventory/page": "app/inventory/page.js",
+  "/requisitions/page": "app/requisitions/page.js",
+  "/order-guides/page": "app/order-guides/page.js",
+  "/integration/page": "app/integration/page.js"
 }
