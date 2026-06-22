@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   getPurchaseOrders, getPurchaseOrder, createPurchaseOrder, submitPO,
   receiveGoods, closePO, cancelPO, getVendors, getItems, addPOLine, getRequisitions,
+  createPOFromReq,
 } from '@/lib/api';
 import { PurchaseOrder, PurchaseOrderLine, Vendor, Item, Requisition, PoOrderType } from '@/types';
 import StatusBadge from '@/components/StatusBadge';
@@ -577,6 +578,38 @@ export default function PurchaseOrdersPage() {
       {showCreate && (
         <Modal title="New Purchase Order" onClose={() => setShowCreate(false)} size="lg">
           <div className="space-y-5">
+
+            {/* Create from Approved Requisition shortcut */}
+            {approvedReqs.length > 0 && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                <p className="text-xs font-semibold text-green-700 mb-2 flex items-center gap-1.5">
+                  <ShoppingCart className="w-3.5 h-3.5" /> Quick Create from Approved Requisition
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  {approvedReqs.map(req => (
+                    <button
+                      key={req.id}
+                      onClick={async () => {
+                        if (!req.id) return;
+                        try {
+                          await createPOFromReq(req.id);
+                          setShowCreate(false);
+                          load();
+                        } catch (err: any) {
+                          alert(err?.response?.data?.message ?? 'Conversion failed — ensure all lines have a vendor.');
+                        }
+                      }}
+                      className="text-xs px-3 py-1.5 bg-white border border-green-300 text-green-700 rounded-lg hover:bg-green-100 transition-colors font-medium"
+                    >
+                      {req.reqNumber} — {req.title}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-green-600 mt-2">Or create a new PO manually below ↓</p>
+              </div>
+            )}
+
+            <hr className={approvedReqs.length > 0 ? 'border-gray-100' : 'hidden'} />
 
             {/* Step 1 — Order Type */}
             <div>

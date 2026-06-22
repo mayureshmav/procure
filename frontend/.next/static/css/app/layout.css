@@ -3598,6 +3598,11 @@ video {
   background-color: rgb(96 165 250 / var(--tw-bg-opacity, 1));
 }
 
+.disabled\:bg-green-300:disabled {
+  --tw-bg-opacity: 1;
+  background-color: rgb(134 239 172 / var(--tw-bg-opacity, 1));
+}
+
 .disabled\:opacity-20:disabled {
   opacity: 0.2;
 }

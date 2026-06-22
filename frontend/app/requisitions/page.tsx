@@ -1,15 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getRequisitions, createRequisition, getRequisition, addRequisitionLine, submitRequisition, approveRequisition, rejectRequisition, getItems, getVendors } from '@/lib/api';
+import { getRequisitions, createRequisition, getRequisition, addRequisitionLine, submitRequisition, approveRequisition, rejectRequisition, getItems, getVendors, createPOFromReq } from '@/lib/api';
 import { Requisition, RequisitionLine, Item, Vendor } from '@/types';
 import StatusBadge from '@/components/StatusBadge';
 import Modal from '@/components/Modal';
-import { Plus, ChevronRight, ArrowLeft, Check, X } from 'lucide-react';
+import { Plus, ChevronRight, ArrowLeft, Check, X, ShoppingCart } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function RequisitionsPage() {
-  const { canAccess } = useAuth();
+  const { canAccess, user } = useAuth();
+  const router = useRouter();
   const canCreate  = canAccess('requisitions', 'create');
   const canEdit    = canAccess('requisitions', 'edit');
   const canApprove = canAccess('requisitions', 'approve');
@@ -20,6 +22,7 @@ export default function RequisitionsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showAddLine, setShowAddLine] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [converting, setConverting] = useState(false);
   const [filter, setFilter] = useState('ALL');
 
   const [newReq, setNewReq] = useState({ title: '', requestedBy: '', department: '', notes: '' });
@@ -40,7 +43,11 @@ export default function RequisitionsPage() {
   };
 
   const handleCreate = async () => {
-    await createRequisition(newReq);
+    if (!newReq.title.trim()) return;
+    await createRequisition({
+      ...newReq,
+      requestedBy: newReq.requestedBy || user?.username || 'Unknown',
+    });
     setShowCreate(false);
     setNewReq({ title: '', requestedBy: '', department: '', notes: '' });
     load();
@@ -74,17 +81,31 @@ export default function RequisitionsPage() {
 
   const handleApprove = async () => {
     if (!selected?.id) return;
-    const updated = await approveRequisition(selected.id, { approvedBy: 'Manager' });
+    const updated = await approveRequisition(selected.id, { approvedBy: user?.username ?? 'Manager' });
     setSelected(updated);
     load();
   };
 
   const handleReject = async () => {
-    const reason = prompt('Rejection reason:');
     if (!selected?.id) return;
+    const reason = prompt('Rejection reason:');
     const updated = await rejectRequisition(selected.id, { notes: reason });
     setSelected(updated);
     load();
+  };
+
+  const handleConvertToPO = async () => {
+    if (!selected?.id) return;
+    setConverting(true);
+    try {
+      const po = await createPOFromReq(selected.id);
+      // Navigate to purchase orders page — the new PO is in DRAFT
+      router.push('/purchase-orders');
+    } catch (err: any) {
+      alert(err?.response?.data?.message ?? 'Failed to convert to PO. Ensure all lines have a vendor assigned.');
+    } finally {
+      setConverting(false);
+    }
   };
 
   // Auto-fill price when item selected
@@ -104,7 +125,7 @@ export default function RequisitionsPage() {
   const fmt = (n?: number) => n != null ? `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—';
   const statuses = ['ALL', 'DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'CONVERTED'];
 
-  // Detail view
+  // ── Detail view ────────────────────────────────────────────────────────────
   if (selected) {
     return (
       <div className="p-8">
@@ -130,19 +151,51 @@ export default function RequisitionsPage() {
         </div>
 
         {/* Action buttons — gated by position */}
-        <div className="flex gap-3 mb-6">
+        <div className="flex flex-wrap gap-3 mb-6">
           {selected.status === 'DRAFT' && (
             <>
-              {canEdit && <button onClick={() => setShowAddLine(true)} className="btn-secondary flex items-center gap-2"><Plus className="w-4 h-4" /> Add Line</button>}
-              {canEdit && <button onClick={handleSubmit} className="btn-primary">Submit for Approval</button>}
+              {canEdit && (
+                <button onClick={() => setShowAddLine(true)} className="btn-secondary flex items-center gap-2">
+                  <Plus className="w-4 h-4" /> Add Line
+                </button>
+              )}
+              {canEdit && (
+                <button onClick={handleSubmit} className="btn-primary">Submit for Approval</button>
+              )}
             </>
           )}
           {selected.status === 'SUBMITTED' && (
             <>
-              {canApprove && <button onClick={handleApprove} className="btn-primary flex items-center gap-2"><Check className="w-4 h-4" /> Approve</button>}
-              {canApprove && <button onClick={handleReject} className="btn-danger flex items-center gap-2"><X className="w-4 h-4" /> Reject</button>}
-              {!canApprove && <span className="text-sm text-gray-400 italic self-center">Pending approval by an authorized user</span>}
+              {canApprove && (
+                <button onClick={handleApprove} className="btn-primary flex items-center gap-2">
+                  <Check className="w-4 h-4" /> Approve
+                </button>
+              )}
+              {canApprove && (
+                <button onClick={handleReject} className="btn-danger flex items-center gap-2">
+                  <X className="w-4 h-4" /> Reject
+                </button>
+              )}
+              {!canApprove && (
+                <span className="text-sm text-gray-400 italic self-center">Pending approval by an authorized user</span>
+              )}
             </>
+          )}
+          {/* Convert to PO — only for APPROVED reqs with at least one line */}
+          {selected.status === 'APPROVED' && canAccess('purchaseOrders', 'create') && (
+            <button
+              onClick={handleConvertToPO}
+              disabled={converting || (selected.lines ?? []).length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              {converting ? 'Converting…' : 'Convert to Purchase Order'}
+            </button>
+          )}
+          {selected.status === 'CONVERTED' && (
+            <span className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              <Check className="w-4 h-4" /> Converted to PO
+            </span>
           )}
         </div>
 
@@ -152,7 +205,9 @@ export default function RequisitionsPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {['#','Description','Vendor','Qty','UOM','Unit Price','Total','GL Account'].map(h => <th key={h} className="table-header">{h}</th>)}
+                {['#','Description','Vendor','Qty','UOM','Unit Price','Total','GL Account'].map(h => (
+                  <th key={h} className="table-header">{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -187,11 +242,13 @@ export default function RequisitionsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
-                <input className="input-field" value={lineForm.description} onChange={e => setLineForm(p => ({ ...p, description: e.target.value }))} />
+                <input className="input-field" value={lineForm.description}
+                  onChange={e => setLineForm(p => ({ ...p, description: e.target.value }))} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
-                <select className="input-field" value={lineForm.vendorId} onChange={e => setLineForm(p => ({ ...p, vendorId: e.target.value }))}>
+                <select className="input-field" value={lineForm.vendorId}
+                  onChange={e => setLineForm(p => ({ ...p, vendorId: e.target.value }))}>
                   <option value="">— Select Vendor —</option>
                   {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                 </select>
@@ -199,22 +256,29 @@ export default function RequisitionsPage() {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Qty *</label>
-                  <input className="input-field" type="number" min="1" value={lineForm.quantity} onChange={e => setLineForm(p => ({ ...p, quantity: parseInt(e.target.value) }))} />
+                  <input className="input-field" type="number" min="1" value={lineForm.quantity}
+                    onChange={e => setLineForm(p => ({ ...p, quantity: parseInt(e.target.value) }))} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">UOM</label>
-                  <select className="input-field" value={lineForm.uom} onChange={e => setLineForm(p => ({ ...p, uom: e.target.value }))}>
-                    {['EA','CS','KG','LB','LT','DZ','BOX','BAG','BTL','TIN','CAN','RM'].map(u => <option key={u} value={u}>{u}</option>)}
+                  <select className="input-field" value={lineForm.uom}
+                    onChange={e => setLineForm(p => ({ ...p, uom: e.target.value }))}>
+                    {['EA','CS','KG','LB','LT','DZ','BOX','BAG','BTL','TIN','CAN','RM'].map(u => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price *</label>
-                  <input className="input-field" type="number" min="0" step="0.01" value={lineForm.unitPrice} onChange={e => setLineForm(p => ({ ...p, unitPrice: parseFloat(e.target.value) }))} />
+                  <input className="input-field" type="number" min="0" step="0.01" value={lineForm.unitPrice}
+                    onChange={e => setLineForm(p => ({ ...p, unitPrice: parseFloat(e.target.value) }))} />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">GL Account</label>
-                <input className="input-field" value={lineForm.glAccount} placeholder="e.g. 6100-001" onChange={e => setLineForm(p => ({ ...p, glAccount: e.target.value }))} />
+                <input className="input-field" value={lineForm.glAccount}
+                  placeholder="e.g. 6100-001"
+                  onChange={e => setLineForm(p => ({ ...p, glAccount: e.target.value }))} />
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button onClick={() => setShowAddLine(false)} className="btn-secondary">Cancel</button>
@@ -227,7 +291,7 @@ export default function RequisitionsPage() {
     );
   }
 
-  // List view
+  // ── List view ──────────────────────────────────────────────────────────────
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
@@ -235,13 +299,20 @@ export default function RequisitionsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Requisitions</h1>
           <p className="text-gray-500 text-sm mt-0.5">{reqs.length} total requisitions</p>
         </div>
-        {canCreate && <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2"><Plus className="w-4 h-4" /> New Requisition</button>}
+        {canCreate && (
+          <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" /> New Requisition
+          </button>
+        )}
       </div>
 
       {/* Status filter */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 flex-wrap">
         {statuses.map(s => (
-          <button key={s} onClick={() => setFilter(s)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === s ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
+          <button key={s} onClick={() => setFilter(s)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              filter === s ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+            }`}>
             {s}
           </button>
         ))}
@@ -249,28 +320,35 @@ export default function RequisitionsPage() {
 
       <div className="card">
         {loading ? (
-          <div className="p-8 text-center text-gray-400">Loading...</div>
+          <div className="p-8 text-center text-gray-400">Loading…</div>
         ) : (
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {['REQ Number','Title','Requested By','Department','Status','Total','Created',''].map(h => <th key={h} className="table-header">{h}</th>)}
+                {['REQ Number','Title','Requested By','Department','Status','Total','Created',''].map(h => (
+                  <th key={h} className="table-header">{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map(req => (
-                <tr key={req.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => req.id && openDetail(req.id)}>
+                <tr key={req.id} className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => req.id && openDetail(req.id)}>
                   <td className="table-cell font-mono font-semibold text-blue-600">{req.reqNumber}</td>
                   <td className="table-cell font-medium">{req.title}</td>
                   <td className="table-cell text-gray-600">{req.requestedBy ?? '—'}</td>
                   <td className="table-cell text-gray-600">{req.department ?? '—'}</td>
                   <td className="table-cell"><StatusBadge status={req.status} /></td>
                   <td className="table-cell font-semibold">{fmt(req.totalAmount)}</td>
-                  <td className="table-cell text-gray-400 text-xs">{req.createdAt ? new Date(req.createdAt).toLocaleDateString() : '—'}</td>
+                  <td className="table-cell text-gray-400 text-xs">
+                    {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : '—'}
+                  </td>
                   <td className="table-cell"><ChevronRight className="w-4 h-4 text-gray-400" /></td>
                 </tr>
               ))}
-              {filtered.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-gray-400">No requisitions found</td></tr>}
+              {filtered.length === 0 && (
+                <tr><td colSpan={8} className="text-center py-8 text-gray-400">No requisitions found</td></tr>
+              )}
             </tbody>
           </table>
         )}
@@ -281,25 +359,33 @@ export default function RequisitionsPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
-              <input className="input-field" value={newReq.title} onChange={e => setNewReq(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Kitchen Supplies — Week 21" />
+              <input className="input-field" value={newReq.title}
+                onChange={e => setNewReq(p => ({ ...p, title: e.target.value }))}
+                placeholder="e.g. Kitchen Supplies — Week 21" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Requested By</label>
-                <input className="input-field" value={newReq.requestedBy} onChange={e => setNewReq(p => ({ ...p, requestedBy: e.target.value }))} />
+                <input className="input-field" value={newReq.requestedBy || user?.username || ''}
+                  onChange={e => setNewReq(p => ({ ...p, requestedBy: e.target.value }))} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                <input className="input-field" value={newReq.department} onChange={e => setNewReq(p => ({ ...p, department: e.target.value }))} placeholder="e.g. F&B, Housekeeping" />
+                <input className="input-field" value={newReq.department}
+                  onChange={e => setNewReq(p => ({ ...p, department: e.target.value }))}
+                  placeholder="e.g. F&B, Housekeeping" />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-              <textarea className="input-field" rows={2} value={newReq.notes} onChange={e => setNewReq(p => ({ ...p, notes: e.target.value }))} />
+              <textarea className="input-field" rows={2} value={newReq.notes}
+                onChange={e => setNewReq(p => ({ ...p, notes: e.target.value }))} />
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => setShowCreate(false)} className="btn-secondary">Cancel</button>
-              <button onClick={handleCreate} className="btn-primary">Create Requisition</button>
+              <button onClick={handleCreate} disabled={!newReq.title.trim()} className="btn-primary">
+                Create Requisition
+              </button>
             </div>
           </div>
         </Modal>

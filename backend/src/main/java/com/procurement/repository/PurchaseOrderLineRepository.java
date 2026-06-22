@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface PurchaseOrderLineRepository extends JpaRepository<PurchaseOrderLine, Long> {
     List<PurchaseOrderLine> findByPurchaseOrderId(Long poId);
+    void deleteByPurchaseOrderId(Long poId);
 }

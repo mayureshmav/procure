@@ -204,8 +204,26 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   const open   = openSections[item.href] ?? false;
                   const Icon   = item.icon;
 
-                  /* Collapsed — icon only */
+                  /* Collapsed — icon only; if item has children, expand on click */
                   if (collapsed) {
+                    const anyChildActive = item.children?.some(c => isActive(c.href)) ?? false;
+                    const collapsedActive = active || anyChildActive;
+                    if (item.children) {
+                      return (
+                        <button
+                          key={item.href}
+                          title={item.label}
+                          onClick={onToggle}   /* expand sidebar so user can pick a child */
+                          className={`w-full flex items-center justify-center p-2.5 rounded-lg transition-colors ${
+                            collapsedActive
+                              ? 'bg-primary-600 text-white shadow-sm'
+                              : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                        </button>
+                      );
+                    }
                     return (
                       <Link
                         key={item.href}
@@ -228,25 +246,19 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     const highlight = active || anyChildActive;
                     return (
                       <div key={item.href}>
-                        <div className={`flex items-center rounded-lg transition-colors ${
-                          highlight
-                            ? 'bg-primary-50 text-primary-700'
-                            : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-800'
-                        }`}>
-                          <Link
-                            href={item.href}
-                            className="flex items-center gap-3 pl-3 pr-1 py-2 flex-1 text-sm font-medium min-w-0"
-                          >
-                            <Icon className="w-4 h-4 flex-shrink-0" />
-                            <span className="flex-1 truncate">{item.label}</span>
-                          </Link>
-                          <button
-                            onClick={() => toggle(item.href)}
-                            className="pr-3 pl-1 py-2 opacity-50 hover:opacity-100 transition-opacity"
-                          >
-                            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-                          </button>
-                        </div>
+                        {/* Parent row — clicking anywhere toggles; children handle navigation */}
+                        <button
+                          onClick={() => toggle(item.href)}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
+                            highlight
+                              ? 'bg-primary-50 text-primary-700'
+                              : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-800'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4 flex-shrink-0" />
+                          <span className="flex-1 text-left truncate">{item.label}</span>
+                          <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 opacity-50 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+                        </button>
 
                         {open && (
                           <div className="ml-4 mt-0.5 pl-3 border-l-2 border-neutral-100 space-y-0.5">

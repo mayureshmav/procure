@@ -145,6 +145,11 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/finance/page.js"
+    ],
+    "/finance/reports/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/finance/reports/page.js"
     ]
   }
 }

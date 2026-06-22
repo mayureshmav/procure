@@ -62,13 +62,14 @@ public class PurchaseOrderController {
     @PostMapping("/{id}/cancel")
     public PurchaseOrder cancel(@PathVariable Long id) { return poService.cancel(id); }
 
+    /** Delete — only DRAFT POs; actually removes the record. */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        // Only allow delete if DRAFT
         PurchaseOrder po = poService.getById(id);
         if (po.getStatus() != PurchaseOrder.PoStatus.DRAFT) {
-            throw new RuntimeException("Can only delete DRAFT POs");
+            throw new RuntimeException("Can only delete DRAFT purchase orders");
         }
+        poService.delete(id);
         return ResponseEntity.noContent().build();
     }
 }

@@ -200,6 +200,12 @@ public class PurchaseOrderService {
         return "PO-" + String.format("%05d", count + seqCounter.getAndIncrement() % 10000);
     }
 
+    @Transactional
+    public void delete(Long id) {
+        lineRepository.deleteByPurchaseOrderId(id);
+        poRepository.deleteById(id);
+    }
+
     public long countByStatus(PurchaseOrder.PoStatus status) {
         return poRepository.countByStatus(status);
     }
