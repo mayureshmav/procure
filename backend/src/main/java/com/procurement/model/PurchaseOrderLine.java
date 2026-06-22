@@ -42,6 +42,14 @@ public class PurchaseOrderLine {
 
     private String glAccount;
 
+    // ── Tax Engine fields ─────────────────────────────────────────────────────
+    @Column(precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal taxAmount = BigDecimal.ZERO;
+
+    @Column(length = 50)
+    private String taxClass;   // e.g. STANDARD, REDUCED, ZERO, EXEMPT
+
     @PrePersist
     @PreUpdate
     public void calcTotal() {

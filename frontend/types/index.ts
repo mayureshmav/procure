@@ -274,6 +274,8 @@ export interface PurchaseOrderLine {
   uom?: string;
   totalPrice?: number;
   glAccount?: string;
+  taxAmount?: number;
+  taxClass?: string;
 }
 
 export type PoOrderType =
@@ -317,6 +319,34 @@ export interface PurchaseOrder {
   serviceDescription?: string;
   serviceAcceptanceDate?: string;
   serviceAcceptedBy?: string;
+  // Tax Engine
+  taxAmount?: number;
+  taxCurrency?: string;
+  taxJurisdiction?: string;
+  taxAuditId?: string;
+  taxCalculatedAt?: string;
+}
+
+// ── Tax Engine ────────────────────────────────────────────────────────────────
+export interface TaxLineSummary {
+  lineId: number;
+  description: string;
+  netAmount: number;
+  taxAmount: number;
+  taxClass?: string;
+}
+
+export interface TaxSummary {
+  poId: number;
+  poNumber: string;
+  subTotal: number;
+  taxAmount: number;
+  totalWithTax: number;
+  taxCurrency: string;
+  taxJurisdiction?: string;
+  taxAuditId?: string;
+  taxCalculatedAt?: string;
+  lines: TaxLineSummary[];
 }
 
 // ── Inventory ─────────────────────────────────────────────────────────────────

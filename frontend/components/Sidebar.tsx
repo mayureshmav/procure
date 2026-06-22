@@ -8,17 +8,21 @@ import {
   Upload, Wifi, ScrollText, Settings, LogOut, UserCircle2,
   BarChart2, Store, ClipboardList, PackageCheck, Building2,
   Shield, Network, Cog, GitBranch, PanelLeftClose, PanelLeftOpen,
-  Inbox,
+  Inbox, Receipt, CreditCard, BookMarked, Landmark, Banknote,
+  PieChart, Calculator,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import type { AccessMatrix } from '@/types';
 
-type NavChild = { href: string; label: string; icon: React.ElementType; module?: keyof AccessMatrix };
+type NavChild = {
+  href: string; label: string; icon: React.ElementType;
+  module?: keyof AccessMatrix; roles?: string[];
+};
 type NavItem  = {
   href: string; label: string; icon: React.ElementType;
   module?: keyof AccessMatrix; exactMatch?: boolean; children?: NavChild[];
-  roles?: string[];  // if set, only show for users with one of these roles
+  roles?: string[];
 };
 type NavGroup = { label: string; items: NavItem[] };
 
@@ -26,54 +30,83 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Operations',
     items: [
-      { href: '/',                label: 'Dashboard',       icon: LayoutDashboard, module: 'dashboard' },
-      { href: '/vendors',         label: 'Vendors',          icon: Building2,       module: 'vendors' },
-      { href: '/vendor-inbox',    label: 'PO Inbox',         icon: Inbox,           module: 'vendorInbox',
-        roles: ['VENDOR_USER', 'VENDOR_ADMIN'] },
       {
-        href: '/catalog', label: 'Item Catalog', icon: Package, module: 'catalog',
+        href: '/', label: 'Operations', icon: LayoutDashboard, exactMatch: true,
         children: [
-          { href: '/catalog/import', label: 'Import', icon: Upload, module: 'catalog' },
+          { href: '/',                label: 'Dashboard',       icon: LayoutDashboard, module: 'dashboard'      },
+          { href: '/vendors',         label: 'Vendors',         icon: Building2,       module: 'vendors'        },
+          { href: '/vendor-inbox',    label: 'PO Inbox',        icon: Inbox,           module: 'vendorInbox',
+            roles: ['VENDOR_USER', 'VENDOR_ADMIN'] },
+          { href: '/catalog',         label: 'Item Catalog',    icon: Package,         module: 'catalog'        },
+          { href: '/catalog/import',  label: 'Catalog Import',  icon: Upload,          module: 'catalog'        },
+          { href: '/order-guides',    label: 'Order Guides',    icon: BookOpen,        module: 'orderGuides'    },
+          { href: '/requisitions',    label: 'Requisitions',    icon: FileText,        module: 'requisitions'   },
+          { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart,    module: 'purchaseOrders' },
+          { href: '/inventory',       label: 'Inventory',       icon: Warehouse,       module: 'inventory'      },
         ],
       },
-      { href: '/order-guides',    label: 'Order Guides',    icon: BookOpen,     module: 'orderGuides' },
-      { href: '/requisitions',    label: 'Requisitions',    icon: FileText,     module: 'requisitions' },
-      { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart, module: 'purchaseOrders' },
-      { href: '/inventory',       label: 'Inventory',       icon: Warehouse,    module: 'inventory' },
+    ],
+  },
+  {
+    label: 'Finance',
+    items: [
+      {
+        href: '/finance', label: 'Finance', icon: Banknote, exactMatch: true,
+        children: [
+          { href: '/finance/accounts-payable',    label: 'Accounts Payable',    icon: Receipt    },
+          { href: '/finance/accounts-receivable', label: 'Accounts Receivable', icon: CreditCard },
+          { href: '/finance/general-ledger',      label: 'General Ledger',      icon: BookMarked },
+          { href: '/finance/bank-reconciliation', label: 'Bank Reconciliation', icon: Landmark   },
+          { href: '/finance/payments',            label: 'Payments',            icon: Banknote   },
+          { href: '/finance/reports',             label: 'Financial Reports',   icon: PieChart   },
+          { href: '/finance/tax',                 label: 'Tax Engine',          icon: Calculator },
+        ],
+      },
     ],
   },
   {
     label: 'Integration',
     items: [
-      // /integration is a tabbed page (connections, edi, catalog, history, ocr) — link to the page, not individual tabs
-      { href: '/integration',          label: 'Integrations',   icon: Wifi,      module: 'integration', exactMatch: true },
-      { href: '/integration/settings', label: 'Settings',       icon: Cog,       module: 'integration' },
-      { href: '/integration/mappings', label: 'Field Mappings', icon: GitBranch, module: 'integration' },
-      { href: '/integration/results',  label: 'Results',        icon: BarChart2, module: 'integration' },
       {
-        href: '/integration/punchout', label: 'PunchOut', icon: Store, module: 'integration',
+        href: '/integration', label: 'Integration', icon: Wifi, exactMatch: true,
         children: [
-          { href: '/integration/punchout/orders',       label: 'Orders',       icon: PackageCheck,  module: 'integration' },
-          { href: '/integration/punchout/requisitions', label: 'Requisitions', icon: ClipboardList, module: 'integration' },
+          { href: '/integration',                       label: 'Integrations',    icon: Wifi,          module: 'integration' },
+          { href: '/integration/settings',              label: 'Settings',        icon: Cog,           module: 'integration' },
+          { href: '/integration/mappings',              label: 'Field Mappings',  icon: GitBranch,     module: 'integration' },
+          { href: '/integration/results',               label: 'Results',         icon: BarChart2,     module: 'integration' },
+          { href: '/integration/punchout',              label: 'PunchOut',        icon: Store,         module: 'integration' },
+          { href: '/integration/punchout/orders',       label: '↳ Orders',        icon: PackageCheck,  module: 'integration' },
+          { href: '/integration/punchout/requisitions', label: '↳ Requisitions',  icon: ClipboardList, module: 'integration' },
+          { href: '/logs',                              label: 'Import Logs',     icon: ScrollText,    module: 'logs'        },
         ],
       },
-      { href: '/logs', label: 'Import Logs', icon: ScrollText, module: 'logs' },
     ],
   },
   {
     label: 'Organization',
     items: [
-      { href: '/org/structure', label: 'Org Structure', icon: Network,  module: 'orgStructure' },
-      { href: '/persons',       label: 'Persons',        icon: Users,    module: 'persons' },
-      { href: '/positions',     label: 'Positions',      icon: Shield,   module: 'positions' },
+      {
+        href: '/org/structure', label: 'Organization', icon: Network,
+        children: [
+          { href: '/org/structure',     label: 'Org Structure', icon: Network, module: 'orgStructure' },
+          { href: '/persons',           label: 'Persons',        icon: Users,   module: 'persons'      },
+          { href: '/positions',         label: 'Positions',      icon: Shield,  module: 'positions'    },
+          { href: '/org/access-matrix', label: 'Access Matrix',  icon: Shield,  module: 'orgStructure' },
+        ],
+      },
     ],
   },
   {
     label: 'System',
     items: [
-      { href: '/admin/organisation',     label: 'Organisation Setup', icon: Building2, roles: ['SYSTEM_ADMIN'] },
-      { href: '/admin/approval-engine',  label: 'Approval Engine',    icon: GitBranch, roles: ['SYSTEM_ADMIN'] },
-      { href: '/settings',               label: 'Settings',           icon: Settings,  module: 'settings'     },
+      {
+        href: '/settings', label: 'System', icon: Settings,
+        children: [
+          { href: '/admin/organisation',    label: 'Organisation Setup', icon: Building2, roles: ['SYSTEM_ADMIN'] },
+          { href: '/admin/approval-engine', label: 'Approval Engine',    icon: GitBranch, roles: ['SYSTEM_ADMIN'] },
+          { href: '/settings',              label: 'Settings',           icon: Settings,  module: 'settings'      },
+        ],
+      },
     ],
   },
 ];
@@ -116,6 +149,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     items.filter(item => {
       if (item.roles && !item.roles.includes(user?.role ?? '')) return false;
       return !item.module || canAccess(item.module, 'view');
+    });
+
+  const visibleChildren = (children: NavChild[]) =>
+    children.filter(c => {
+      if (c.roles && !c.roles.includes(user?.role ?? '')) return false;
+      return !c.module || canAccess(c.module, 'view');
     });
 
   return (
@@ -211,27 +250,25 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
                         {open && (
                           <div className="ml-4 mt-0.5 pl-3 border-l-2 border-neutral-100 space-y-0.5">
-                            {item.children
-                              .filter(c => !c.module || canAccess(c.module, 'view'))
-                              .map(child => {
-                                const ca = isActive(child.href);
-                                const CIcon = child.icon;
-                                return (
-                                  <Link
-                                    key={child.href}
-                                    href={child.href}
-                                    className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                                      ca
-                                        ? 'bg-primary-600 text-white shadow-sm'
-                                        : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800'
-                                    }`}
-                                  >
-                                    <CIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                                    <span className="flex-1">{child.label}</span>
-                                    {ca && <ChevronRight className="w-3 h-3 opacity-70" />}
-                                  </Link>
-                                );
-                              })}
+                            {visibleChildren(item.children).map(child => {
+                              const ca = isActive(child.href);
+                              const CIcon = child.icon;
+                              return (
+                                <Link
+                                  key={child.href}
+                                  href={child.href}
+                                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                    ca
+                                      ? 'bg-primary-600 text-white shadow-sm'
+                                      : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800'
+                                  }`}
+                                >
+                                  <CIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                                  <span className="flex-1">{child.label}</span>
+                                  {ca && <ChevronRight className="w-3 h-3 opacity-70" />}
+                                </Link>
+                              );
+                            })}
                           </div>
                         )}
                       </div>

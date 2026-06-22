@@ -95,6 +95,22 @@ public class PurchaseOrder {
     @Builder.Default
     private List<PurchaseOrderLine> lines = new ArrayList<>();
 
+    // ── Tax Engine fields ─────────────────────────────────────────────────────
+    @Column(precision = 14, scale = 2)
+    @Builder.Default
+    private BigDecimal taxAmount = BigDecimal.ZERO;
+
+    @Column(length = 3)
+    private String taxCurrency;
+
+    @Column(length = 10)
+    private String taxJurisdiction;
+
+    @Column(length = 64)
+    private String taxAuditId;
+
+    private LocalDateTime taxCalculatedAt;
+
     public enum PoStatus {
         DRAFT, SUBMITTED, ACKNOWLEDGED, PARTIALLY_RECEIVED, RECEIVED, CLOSED, CANCELLED
     }

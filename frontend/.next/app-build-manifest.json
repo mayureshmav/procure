@@ -16,6 +16,16 @@
       "static/chunks/main-app.js",
       "static/chunks/app/login/page.js"
     ],
+    "/integration/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/integration/page.js"
+    ],
+    "/integration/settings/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/integration/settings/page.js"
+    ],
     "/vendors/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -46,26 +56,6 @@
       "static/chunks/main-app.js",
       "static/chunks/app/inventory/page.js"
     ],
-    "/catalog/import/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/catalog/import/page.js"
-    ],
-    "/integration/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/integration/page.js"
-    ],
-    "/integration/settings/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/integration/settings/page.js"
-    ],
-    "/integration/settings/new/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/integration/settings/new/page.js"
-    ],
     "/integration/mappings/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -81,45 +71,80 @@
       "static/chunks/main-app.js",
       "static/chunks/app/integration/punchout/page.js"
     ],
-    "/integration/mappings/new/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/integration/mappings/new/page.js"
-    ],
     "/logs/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/logs/page.js"
     ],
-    "/org/structure/page": [
+    "/settings/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/org/structure/page.js"
-    ],
-    "/persons/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/persons/page.js"
-    ],
-    "/positions/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/positions/page.js"
-    ],
-    "/admin/organisation/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/organisation/page.js"
+      "static/chunks/app/settings/page.js"
     ],
     "/admin/approval-engine/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/admin/approval-engine/page.js"
     ],
-    "/settings/page": [
+    "/admin/organisation/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/settings/page.js"
+      "static/chunks/app/admin/organisation/page.js"
+    ],
+    "/positions/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/positions/page.js"
+    ],
+    "/persons/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/persons/page.js"
+    ],
+    "/org/structure/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/org/structure/page.js"
+    ],
+    "/finance/accounts-payable/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/finance/accounts-payable/page.js"
+    ],
+    "/finance/accounts-receivable/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/finance/accounts-receivable/page.js"
+    ],
+    "/finance/general-ledger/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/finance/general-ledger/page.js"
+    ],
+    "/finance/payments/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/finance/payments/page.js"
+    ],
+    "/finance/bank-reconciliation/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/finance/bank-reconciliation/page.js"
+    ],
+    "/finance/tax/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/finance/tax/page.js"
+    ],
+    "/org/access-matrix/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/org/access-matrix/page.js"
+    ],
+    "/finance/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/finance/page.js"
     ]
   }
 }

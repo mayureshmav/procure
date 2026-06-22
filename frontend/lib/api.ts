@@ -173,6 +173,10 @@ export const receiveGoods       = (id: number, data: object) => api.post(`/purch
 export const closePO            = (id: number) => api.post(`/purchase-orders/${id}/close`).then(r => r.data);
 export const cancelPO           = (id: number) => api.post(`/purchase-orders/${id}/cancel`).then(r => r.data);
 
+// ── Tax Engine ────────────────────────────────────────────────────────────────
+export const calculateTaxForPO  = (poId: number) => api.post(`/tax/calculate-po/${poId}`).then(r => r.data);
+export const getTaxSummary      = (poId: number) => api.get(`/tax/summary/${poId}`).then(r => r.data);
+
 // ── Inventory ─────────────────────────────────────────────────────────────────
 export const getInventory         = (params?: object) => api.get('/inventory', { params }).then(r => r.data);
 export const getInventoryByItemId = (itemId: number) => api.get(`/inventory/item/${itemId}`).then(r => r.data);

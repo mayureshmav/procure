@@ -8,6 +8,7 @@ import {
 import { PurchaseOrder, PurchaseOrderLine, Vendor, Item, Requisition, PoOrderType } from '@/types';
 import StatusBadge from '@/components/StatusBadge';
 import Modal from '@/components/Modal';
+import TaxSummary from '@/components/TaxSummary';
 import { useAuth } from '@/context/AuthContext';
 import {
   Plus, ArrowLeft, ChevronRight, Truck, Check, Ban,
@@ -280,6 +281,15 @@ export default function PurchaseOrdersPage() {
             </div>
             <p className="text-2xl font-bold text-gray-900 flex-shrink-0">{fmt(selected.totalAmount)}</p>
           </div>
+
+          {/* Tax Summary — shown for all POs with an id */}
+          {selected.id && (
+            <TaxSummary
+              poId={selected.id}
+              poStatus={selected.status}
+              onRecalculated={() => getPurchaseOrder(selected.id!).then(setSelected)}
+            />
+          )}
 
           {/* Type-specific metadata */}
           <OrderTypeMetadata po={selected} />

@@ -2,6 +2,7 @@ package com.procurement.service;
 
 import com.procurement.model.*;
 import com.procurement.repository.*;
+import com.procurement.tax.TaxIntegrationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ public class PurchaseOrderService {
     private final PurchaseOrderLineRepository lineRepository;
     private final RequisitionRepository requisitionRepository;
     private final InventoryItemRepository inventoryItemRepository;
+    private final TaxIntegrationService taxService;
 
     private static final AtomicLong seqCounter = new AtomicLong(1000);
 
@@ -31,6 +33,11 @@ public class PurchaseOrderService {
     public PurchaseOrder getById(Long id) {
         return poRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("PO not found: " + id));
+    }
+
+    /** Persist an already-modified PO (used by TaxIntegrationService after applying tax). */
+    public PurchaseOrder save(PurchaseOrder po) {
+        return poRepository.save(po);
     }
 
     @Transactional
@@ -111,6 +118,8 @@ public class PurchaseOrderService {
         }
         po.setStatus(PurchaseOrder.PoStatus.SUBMITTED);
         po.setSubmittedAt(LocalDateTime.now());
+        // Auto-calculate tax on submission; non-blocking — zero tax returned if engine is down
+        taxService.applyTax(po);
         return poRepository.save(po);
     }
 
