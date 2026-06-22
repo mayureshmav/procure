@@ -15,6 +15,7 @@ import {
   Plus, ArrowLeft, ChevronRight, Truck, Check, Ban,
   AlertTriangle, Info, ShoppingCart, Archive, RefreshCw,
   Wrench, Zap, BookMarked, Package, CheckCircle, Loader2,
+  Send, ClipboardList, GitBranch,
 } from 'lucide-react';
 
 // ── PO Order Type definitions ─────────────────────────────────────────────────
@@ -149,6 +150,13 @@ export default function PurchaseOrdersPage() {
   const [receiveQtys, setReceiveQtys] = useState<Record<number, number>>({});
   const [serviceAccept, setServiceAccept] = useState({ date: '', acceptedBy: '' });
 
+  // GRN, dispatch, blanket state
+  const [grns, setGrns] = useState<any[]>([]);
+  const [dispatchLog, setDispatchLog] = useState<any[]>([]);
+  const [blanketReleases, setBlanketReleases] = useState<any[]>([]);
+  const [showRelease, setShowRelease] = useState(false);
+  const [releaseForm, setReleaseForm] = useState({ amount: '', notes: '' });
+
   const load = () => {
     setLoading(true);
     Promise.all([getPurchaseOrders(), getVendors(), getItems(), getRequisitions({ status: 'APPROVED' })])
@@ -164,6 +172,32 @@ export default function PurchaseOrdersPage() {
     const qtys: Record<number, number> = {};
     (po.lines ?? []).forEach((l: PurchaseOrderLine) => { if (l.id) qtys[l.id] = 0; });
     setReceiveQtys(qtys);
+    setGrns([]); setDispatchLog([]); setBlanketReleases([]);
+
+    const token = localStorage.getItem('token');
+    const h = token ? { Authorization: `Bearer ${token}` } : {};
+    // Fetch GRNs, dispatch log, and (for blankets) releases
+    Promise.all([
+      fetch(`/api/purchase-orders/${id}/grns`, { headers: h }).then(r => r.ok ? r.json() : []),
+      fetch(`/api/purchase-orders/${id}/dispatch-log`, { headers: h }).then(r => r.ok ? r.json() : []),
+      po.orderType === 'BLANKET'
+        ? fetch(`/api/purchase-orders/${id}/releases`, { headers: h }).then(r => r.ok ? r.json() : [])
+        : Promise.resolve([]),
+    ]).then(([g, d, rel]) => { setGrns(g); setDispatchLog(d); setBlanketReleases(rel); })
+      .catch(() => {});
+  };
+
+  const handleCreateRelease = async () => {
+    if (!selected?.id || !releaseForm.amount) return;
+    const token = localStorage.getItem('token');
+    const h = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+    await fetch(`/api/purchase-orders/${selected.id}/release`, {
+      method: 'POST', headers: h,
+      body: JSON.stringify({ amount: parseFloat(releaseForm.amount), notes: releaseForm.notes }),
+    });
+    setShowRelease(false);
+    setReleaseForm({ amount: '', notes: '' });
+    openDetail(selected.id);
   };
 
   const handleCreate = async () => {
@@ -389,6 +423,118 @@ export default function PurchaseOrdersPage() {
           </div>
         </div>
 
+        {/* ── Dispatch Log ──────────────────────────────────────────────────── */}
+        {dispatchLog.length > 0 && (
+          <div className="mt-6 bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Send className="w-4 h-4 text-blue-500" />
+              <h3 className="font-semibold text-gray-800">Dispatch Log</h3>
+            </div>
+            <div className="space-y-2">
+              {dispatchLog.map((d: any) => (
+                <div key={d.id} className="flex items-center gap-3 text-sm">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${d.dispatchType === 'EDI' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{d.dispatchType}</span>
+                  <span className="text-gray-500">{d.recipient}</span>
+                  <span className="text-gray-400">·</span>
+                  <span className={`font-medium ${d.status === 'SENT' ? 'text-green-600' : 'text-red-600'}`}>{d.status}</span>
+                  <span className="text-gray-400 text-xs ml-auto">{d.sentAt ? new Date(d.sentAt).toLocaleString() : ''}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── GRN Receipts ──────────────────────────────────────────────────── */}
+        {grns.length > 0 && (
+          <div className="mt-6 bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <ClipboardList className="w-4 h-4 text-green-500" />
+              <h3 className="font-semibold text-gray-800">Goods Receipt Notes</h3>
+            </div>
+            <div className="space-y-3">
+              {grns.map((grn: any) => (
+                <div key={grn.id} className="border border-gray-100 rounded-lg p-3 bg-gray-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-sm font-semibold text-green-700">{grn.grnNumber}</span>
+                    <span className="text-xs text-gray-400">{grn.receivedAt ? new Date(grn.receivedAt).toLocaleDateString() : ''}</span>
+                  </div>
+                  {(grn.lines ?? []).length > 0 && (
+                    <table className="w-full text-xs">
+                      <thead><tr className="text-gray-500">{['Line','Qty Received','Unit Price','Total'].map(h => <th key={h} className="text-left py-1 font-medium">{h}</th>)}</tr></thead>
+                      <tbody>
+                        {grn.lines.map((l: any) => (
+                          <tr key={l.id}>
+                            <td className="py-1">{l.purchaseOrderLine?.description ?? l.purchaseOrderLine?.item?.name ?? '—'}</td>
+                            <td className="py-1">{l.receivedQty}</td>
+                            <td className="py-1">${Number(l.receivedPrice ?? 0).toFixed(2)}</td>
+                            <td className="py-1 font-semibold">${Number(l.lineTotal ?? 0).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Blanket PO: Release Orders ────────────────────────────────────── */}
+        {selected.orderType === 'BLANKET' && (
+          <div className="mt-6 bg-white rounded-xl border border-purple-200 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <GitBranch className="w-4 h-4 text-purple-500" />
+                <h3 className="font-semibold text-gray-800">Blanket Release Orders</h3>
+              </div>
+              {['SUBMITTED','ACKNOWLEDGED'].includes(selected.status) && canApprove && (
+                <button onClick={() => setShowRelease(true)}
+                  className="flex items-center gap-1.5 text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700">
+                  <Plus className="w-3.5 h-3.5" /> Create Release Order
+                </button>
+              )}
+            </div>
+
+            {/* Spend tracker */}
+            {selected.blanketMaxAmount && (
+              <div className="mb-4">
+                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>Released: ${Number(selected.blanketReleasedAmount ?? 0).toLocaleString()}</span>
+                  <span>Cap: ${Number(selected.blanketMaxAmount).toLocaleString()}</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-purple-500 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, (Number(selected.blanketReleasedAmount ?? 0) / Number(selected.blanketMaxAmount)) * 100)}%` }} />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Remaining: ${(Number(selected.blanketMaxAmount) - Number(selected.blanketReleasedAmount ?? 0)).toLocaleString()}
+                  {selected.blanketExpiryDate && ` · Expires ${new Date(selected.blanketExpiryDate).toLocaleDateString()}`}
+                </p>
+              </div>
+            )}
+
+            {blanketReleases.length === 0 ? (
+              <p className="text-sm text-gray-400">No release orders yet.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>{['PO #','Status','Amount','Created'].map(h => <th key={h} className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {blanketReleases.map((r: any) => (
+                    <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openDetail(r.id)}>
+                      <td className="px-3 py-2 font-mono text-xs text-blue-600">{r.poNumber}</td>
+                      <td className="px-3 py-2"><StatusBadge status={r.status} /></td>
+                      <td className="px-3 py-2 font-semibold">${Number(r.totalAmount ?? 0).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-gray-400 text-xs">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
         {/* Modals */}
         {showAddLine && (
           <Modal title="Add Line Item" onClose={() => setShowAddLine(false)}>
@@ -420,6 +566,33 @@ export default function PurchaseOrdersPage() {
               <div className="flex justify-end gap-3 pt-2">
                 <button onClick={() => setShowAddLine(false)} className="btn-secondary">Cancel</button>
                 <button onClick={handleAddLine} className="btn-primary">Add Line</button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {showRelease && (
+          <Modal title="Create Release Order" onClose={() => setShowRelease(false)}>
+            <div className="space-y-4">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm text-purple-800">
+                Blanket: <strong>{selected.poNumber}</strong> ·
+                Cap: <strong>${Number(selected.blanketMaxAmount ?? 0).toLocaleString()}</strong> ·
+                Remaining: <strong>${(Number(selected.blanketMaxAmount ?? 0) - Number(selected.blanketReleasedAmount ?? 0)).toLocaleString()}</strong>
+              </div>
+              <div>
+                <label className="input-label">Release Amount *</label>
+                <input type="number" className="input-field" placeholder="e.g. 5000"
+                  value={releaseForm.amount} onChange={e => setReleaseForm(p => ({ ...p, amount: e.target.value }))} />
+              </div>
+              <div>
+                <label className="input-label">Notes</label>
+                <textarea className="input-field" rows={2} placeholder="Purpose of this release order…"
+                  value={releaseForm.notes} onChange={e => setReleaseForm(p => ({ ...p, notes: e.target.value }))} />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button onClick={() => setShowRelease(false)} className="btn-secondary">Cancel</button>
+                <button onClick={handleCreateRelease} disabled={!releaseForm.amount}
+                  className="btn-primary disabled:opacity-50">Create Release</button>
               </div>
             </div>
           </Modal>

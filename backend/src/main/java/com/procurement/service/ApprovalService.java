@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -17,6 +18,122 @@ public class ApprovalService {
 
     private final ApprovalPolicyRepository policyRepo;
     private final ApprovalRuleRepository   ruleRepo;
+
+    // ── Evaluate ─────────────────────────────────────────────────────────────
+
+    /**
+     * Evaluate approval rules for a submitted document.
+     *
+     * @param documentType  "REQUISITION" or "PO_STANDARD" / "PO_BLANKET" etc.
+     * @param amount        total spend amount (may be null)
+     * @param poType        PO order type string (may be null)
+     * @param department    department code or name (may be null)
+     */
+    public ApprovalResult evaluate(String documentType, BigDecimal amount,
+                                   String poType, String department) {
+        Optional<ApprovalPolicy> activePolicyOpt = policyRepo.findAll().stream()
+                .filter(p -> "ACTIVE".equals(p.getStatus()))
+                .findFirst();
+
+        if (activePolicyOpt.isEmpty()) {
+            return ApprovalResult.builder()
+                    .requiresApproval(false)
+                    .message("No active approval policy — auto-approved")
+                    .build();
+        }
+
+        ApprovalPolicy policy = activePolicyOpt.get();
+        List<ApprovalRule> rules = ruleRepo.findByPolicyIdOrderByPriorityAsc(policy.getId())
+                .stream().filter(ApprovalRule::isActive).collect(Collectors.toList());
+
+        for (ApprovalRule rule : rules) {
+            // Check document type match (empty docTypes = match all)
+            if (!rule.getDocumentTypes().isBlank()) {
+                List<String> allowed = Arrays.asList(rule.getDocumentTypes().split(","));
+                if (allowed.stream().noneMatch(t -> t.trim().equalsIgnoreCase(documentType))) {
+                    continue;
+                }
+            }
+
+            // Evaluate all conditions (AND logic)
+            boolean allMatch = rule.getConditions().stream().allMatch(c ->
+                    evaluateCondition(c, amount, poType, department));
+
+            if (allMatch) {
+                List<String> positionIds = rule.getSteps().stream()
+                        .flatMap(s -> splitStringList(s.getPositionIds()).stream())
+                        .distinct().collect(Collectors.toList());
+                String approvalMode = rule.getSteps().stream()
+                        .map(ApprovalStep::getApprovalMode)
+                        .filter(Objects::nonNull)
+                        .findFirst().orElse("ANY_ONE");
+
+                return ApprovalResult.builder()
+                        .requiresApproval(true)
+                        .matchedRuleId(rule.getId())
+                        .matchedRuleName(rule.getName())
+                        .requiredApproverPositionIds(positionIds)
+                        .approvalMode(approvalMode)
+                        .message("Approval required: matched rule \"" + rule.getName() + "\"")
+                        .build();
+            }
+        }
+
+        return ApprovalResult.builder()
+                .requiresApproval(false)
+                .message("No matching approval rule — auto-approved")
+                .build();
+    }
+
+    private boolean evaluateCondition(ApprovalCondition c, BigDecimal amount,
+                                      String poType, String department) {
+        String field = c.getField();
+        String op    = c.getOperator();
+        String val   = c.getValue();
+
+        switch (field) {
+            case "SPEND_AMOUNT" -> {
+                if (amount == null) return false;
+                BigDecimal threshold  = parseBD(val);
+                BigDecimal thresholdTo = parseBD(c.getValueTo());
+                return switch (op) {
+                    case "GTE"     -> amount.compareTo(threshold) >= 0;
+                    case "GT"      -> amount.compareTo(threshold) > 0;
+                    case "LTE"     -> amount.compareTo(threshold) <= 0;
+                    case "LT"      -> amount.compareTo(threshold) < 0;
+                    case "EQ"      -> amount.compareTo(threshold) == 0;
+                    case "BETWEEN" -> amount.compareTo(threshold) >= 0 && amount.compareTo(thresholdTo) <= 0;
+                    default        -> false;
+                };
+            }
+            case "PO_TYPE" -> {
+                if (poType == null) return false;
+                return switch (op) {
+                    case "EQ"  -> poType.equalsIgnoreCase(val);
+                    case "NEQ" -> !poType.equalsIgnoreCase(val);
+                    case "IN"  -> Arrays.asList(val.split(",")).stream().anyMatch(v -> v.trim().equalsIgnoreCase(poType));
+                    case "NOT_IN" -> Arrays.asList(val.split(",")).stream().noneMatch(v -> v.trim().equalsIgnoreCase(poType));
+                    default    -> false;
+                };
+            }
+            case "DEPARTMENT" -> {
+                if (department == null) return false;
+                return switch (op) {
+                    case "EQ"       -> department.equalsIgnoreCase(val);
+                    case "NEQ"      -> !department.equalsIgnoreCase(val);
+                    case "CONTAINS" -> department.toLowerCase().contains(val.toLowerCase());
+                    case "IN"       -> Arrays.asList(val.split(",")).stream().anyMatch(v -> v.trim().equalsIgnoreCase(department));
+                    default         -> false;
+                };
+            }
+            default -> { return true; } // Unknown fields pass through
+        }
+    }
+
+    private BigDecimal parseBD(String s) {
+        try { return s != null && !s.isBlank() ? new BigDecimal(s.trim()) : BigDecimal.ZERO; }
+        catch (NumberFormatException e) { return BigDecimal.ZERO; }
+    }
 
     // ── Policy ────────────────────────────────────────────────────────────────
 

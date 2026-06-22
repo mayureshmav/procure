@@ -1,8 +1,11 @@
 package com.procurement.service;
 
+import com.procurement.dto.approval.ApprovalResult;
 import com.procurement.model.*;
 import com.procurement.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
@@ -14,10 +17,13 @@ import java.util.concurrent.atomic.AtomicLong;
 @RequiredArgsConstructor
 public class RequisitionService {
 
+    private static final Logger log = LoggerFactory.getLogger(RequisitionService.class);
+
     private final RequisitionRepository requisitionRepository;
     private final RequisitionLineRepository lineRepository;
     private final VendorRepository vendorRepository;
     private final ItemRepository itemRepository;
+    private final ApprovalService approvalService;
 
     private static final AtomicLong seqCounter = new AtomicLong(1000);
 
@@ -68,7 +74,21 @@ public class RequisitionService {
         }
         req.setStatus(Requisition.ReqStatus.SUBMITTED);
         req.setSubmittedAt(LocalDateTime.now());
-        return requisitionRepository.save(req);
+        Requisition saved = requisitionRepository.save(req);
+
+        // Evaluate approval rules (non-blocking — log only; no hard gate yet)
+        try {
+            ApprovalResult result = approvalService.evaluate(
+                    "REQUISITION",
+                    req.getTotalAmount(),
+                    null,
+                    null);
+            log.info("REQ {} approval evaluation: {}", req.getReqNumber(), result.getMessage());
+        } catch (Exception ex) {
+            log.warn("Approval evaluation failed for REQ {} — skipping: {}", req.getReqNumber(), ex.getMessage());
+        }
+
+        return saved;
     }
 
     @Transactional

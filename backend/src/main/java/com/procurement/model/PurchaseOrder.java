@@ -65,6 +65,15 @@ public class PurchaseOrder {
     @Builder.Default
     private Integer    blanketReleasesCount = 0;
 
+    /** For release orders: ID of the parent BLANKET PO */
+    @Column(name = "blanket_parent_id")
+    private Long blanketParentId;
+
+    /** Cumulative spend released against this blanket (maintained in service) */
+    @Column(name = "blanket_released_amount", precision = 14, scale = 2)
+    @Builder.Default
+    private BigDecimal blanketReleasedAmount = BigDecimal.ZERO;
+
     // ── Storeroom PO fields ───────────────────────────────────────────────────
     @Column(length = 100)
     private String storeroomLocation;

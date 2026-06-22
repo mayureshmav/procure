@@ -2,6 +2,7 @@ package com.procurement.controller;
 
 import com.procurement.dto.ApiResponse;
 import com.procurement.dto.approval.ApprovalPolicyDTO;
+import com.procurement.dto.approval.ApprovalResult;
 import com.procurement.dto.approval.ApprovalRuleDTO;
 import com.procurement.service.ApprovalService;
 import lombok.Data;
@@ -9,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -94,8 +96,27 @@ public class ApprovalController {
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
+    /** Evaluate approval rules for a given document — returns whether approval is required */
+    @PostMapping("/evaluate")
+    public ResponseEntity<ApprovalResult> evaluate(@RequestBody EvaluateRequest req) {
+        ApprovalResult result = approvalService.evaluate(
+                req.getDocumentType(),
+                req.getAmount() != null ? new BigDecimal(req.getAmount().toString()) : null,
+                req.getPoType(),
+                req.getDepartment());
+        return ResponseEntity.ok(result);
+    }
+
     @Data
     static class ReorderRequest {
         private List<String> orderedIds;
+    }
+
+    @Data
+    static class EvaluateRequest {
+        private String documentType;
+        private Number amount;
+        private String poType;
+        private String department;
     }
 }

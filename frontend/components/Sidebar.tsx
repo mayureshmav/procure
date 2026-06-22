@@ -9,7 +9,7 @@ import {
   BarChart2, Store, ClipboardList, PackageCheck, Building2,
   Shield, Network, Cog, GitBranch, PanelLeftClose, PanelLeftOpen,
   Inbox, Receipt, CreditCard, BookMarked, Landmark, Banknote,
-  PieChart, Calculator,
+  PieChart, Calculator, ShieldAlert,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -102,9 +102,21 @@ const NAV_GROUPS: NavGroup[] = [
       {
         href: '/settings', label: 'System', icon: Settings,
         children: [
-          { href: '/admin/organisation',    label: 'Organisation Setup', icon: Building2, roles: ['SYSTEM_ADMIN'] },
-          { href: '/admin/approval-engine', label: 'Approval Engine',    icon: GitBranch, roles: ['SYSTEM_ADMIN'] },
-          { href: '/settings',              label: 'Settings',           icon: Settings,  module: 'settings'      },
+          { href: '/admin/organisation',    label: 'Organisation Setup', icon: Building2,  roles: ['SYSTEM_ADMIN', 'SUPER_ADMIN'] },
+          { href: '/admin/approval-engine', label: 'Approval Engine',    icon: GitBranch,  roles: ['SYSTEM_ADMIN', 'SUPER_ADMIN'] },
+          { href: '/settings',              label: 'Settings',           icon: Settings,   module: 'settings'      },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'Super Admin',
+    items: [
+      {
+        href: '/super-admin/tenants', label: 'Super Admin', icon: ShieldAlert,
+        roles: ['SUPER_ADMIN'],
+        children: [
+          { href: '/super-admin/tenants', label: 'Tenant Management', icon: Building2, roles: ['SUPER_ADMIN'] },
         ],
       },
     ],

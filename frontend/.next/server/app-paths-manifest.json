@@ -1,8 +1,8 @@
 {
-  "/finance/tax/page": "app/finance/tax/page.js",
+  "/login/page": "app/login/page.js",
+  "/org/structure/page": "app/org/structure/page.js",
+  "/admin/organisation/page": "app/admin/organisation/page.js",
   "/page": "app/page.js",
-  "/finance/reports/page": "app/finance/reports/page.js",
-  "/finance/accounts-payable/page": "app/finance/accounts-payable/page.js",
   "/inventory/page": "app/inventory/page.js",
-  "/purchase-orders/page": "app/purchase-orders/page.js"
+  "/requisitions/page": "app/requisitions/page.js"
 }

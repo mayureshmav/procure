@@ -1,19 +1,18 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Upload, CheckCircle, Clock, AlertTriangle, XCircle, ChevronDown, Plus, FileText, Eye, Filter } from 'lucide-react';
 
 const fmt = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
 
-const INVOICES = [
-  { id: 'INV-1041', vendor: 'Sysco Foods', date: '2026-06-18', amount: 12400, gl: '5000', confidence: 94, status: 'NEEDS_REVIEW', po: 'PO-2210' },
-  { id: 'INV-1042', vendor: 'Office Depot', date: '2026-06-17', amount: 890, gl: '6100', confidence: 97, status: 'APPROVED', po: 'PO-2205' },
-  { id: 'INV-1043', vendor: 'Maintenance Pro', date: '2026-06-16', amount: 3200, gl: '6200', confidence: 61, status: 'NEEDS_REVIEW', po: null },
-  { id: 'INV-1044', vendor: 'Golf Supply Co', date: '2026-06-15', amount: 5780, gl: '5100', confidence: 88, status: 'PENDING_AI', po: 'PO-2198' },
-  { id: 'INV-1045', vendor: 'Utilities Corp', date: '2026-06-14', amount: 2410, gl: '6300', confidence: 99, status: 'APPROVED', po: null },
-  { id: 'INV-1046', vendor: 'Greenscape Ltd', date: '2026-06-12', amount: 1650, gl: '6200', confidence: 73, status: 'PENDING_AI', po: 'PO-2192' },
-  { id: 'INV-1047', vendor: 'AV Systems Inc', date: '2026-06-10', amount: 4900, gl: '6400', confidence: 55, status: 'NEEDS_REVIEW', po: null },
-  { id: 'INV-1048', vendor: 'Sysco Foods', date: '2026-06-08', amount: 9200, gl: '5000', confidence: 96, status: 'PAID', po: 'PO-2180' },
-];
+type ApInvoice = {
+  id: string; invoiceNo: string; poNumber: string; vendor: string;
+  date: string; dueDate: string; amount: number; tax: number;
+  currency: string; status: string; poStatus: string;
+};
+
+type ApSummary = {
+  totalOutstanding: number; totalPaid: number; overdueCount: number; invoiceCount: number;
+};
 
 const EXCEPTIONS = [
   { type: 'Price Variance', desc: 'Invoice amount differs from PO by >5%', count: 7, color: 'red' },
@@ -58,7 +57,24 @@ export default function AccountsPayablePage() {
   const [filter, setFilter] = useState('All');
   const [showUpload, setShowUpload] = useState(false);
   const [expandedRule, setExpandedRule] = useState<number | null>(null);
+  const [invoices, setInvoices] = useState<ApInvoice[]>([]);
+  const [summary, setSummary] = useState<ApSummary | null>(null);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    Promise.all([
+      fetch('/api/finance/ap/invoices', { headers }).then(r => r.json()),
+      fetch('/api/finance/ap/summary',  { headers }).then(r => r.json()),
+    ]).then(([inv, sum]) => {
+      setInvoices(Array.isArray(inv) ? inv : []);
+      setSummary(sum);
+    }).catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const INVOICES = invoices; // alias for existing code below
   const filtered = filter === 'All' ? INVOICES
     : filter === 'Pending AI' ? INVOICES.filter(i => i.status === 'PENDING_AI')
     : filter === 'Needs Review' ? INVOICES.filter(i => i.status === 'NEEDS_REVIEW')
@@ -94,10 +110,10 @@ export default function AccountsPayablePage() {
           {/* KPIs */}
           <div className="grid grid-cols-4 gap-4 mb-6">
             {[
-              { label: 'Pending Review', value: '24', sub: 'invoices awaiting action', icon: Clock, color: 'blue' },
-              { label: 'Auto-Coded', value: '87%', sub: 'AI accuracy this month', icon: CheckCircle, color: 'green' },
-              { label: 'Overdue', value: '3', sub: 'past due date', icon: AlertTriangle, color: 'red' },
-              { label: 'Avg Processing', value: '4.2h', sub: 'submission to approval', icon: Clock, color: 'purple' },
+              { label: 'Total Outstanding', value: summary ? fmt(summary.totalOutstanding) : '—', sub: 'unpaid AP balance', icon: Clock, color: 'blue' },
+              { label: 'Total Paid', value: summary ? fmt(summary.totalPaid) : '—', sub: 'closed invoices', icon: CheckCircle, color: 'green' },
+              { label: 'Overdue', value: summary ? String(summary.overdueCount) : '—', sub: 'past due date', icon: AlertTriangle, color: 'red' },
+              { label: 'Invoice Count', value: summary ? String(summary.invoiceCount) : '—', sub: 'AP invoices from POs', icon: FileText, color: 'purple' },
             ].map(k => (
               <div key={k.label} className="bg-white border border-gray-200 rounded-xl p-4">
                 <p className={`text-2xl font-bold text-${k.color}-600`}>{k.value}</p>
@@ -119,42 +135,49 @@ export default function AccountsPayablePage() {
 
           {/* Invoice table */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  {['Vendor', 'Invoice #', 'Date', 'Amount', 'GL Code', 'AI Confidence', 'PO Match', 'Status', 'Actions'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map(inv => (
-                  <tr key={inv.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{inv.vendor}</td>
-                    <td className="px-4 py-3 text-blue-600 font-mono text-xs">{inv.id}</td>
-                    <td className="px-4 py-3 text-gray-500">{inv.date}</td>
-                    <td className="px-4 py-3 font-semibold">{fmt(inv.amount)}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-600">{inv.gl}</td>
-                    <td className="px-4 py-3">{confidenceBadge(inv.confidence)}</td>
-                    <td className="px-4 py-3">
-                      {inv.po ? <span className="text-xs text-green-600 font-medium">{inv.po}</span>
-                        : <span className="text-xs text-red-500">No PO</span>}
-                    </td>
-                    <td className="px-4 py-3">{statusBadge(inv.status)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1">
-                        {inv.status !== 'PAID' && inv.status !== 'APPROVED' && (
-                          <button className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded hover:bg-green-100">Approve</button>
-                        )}
-                        <button className="text-xs bg-gray-50 text-gray-600 border border-gray-200 px-2 py-1 rounded hover:bg-gray-100">
-                          <Eye className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </td>
+            {loading ? (
+              <div className="p-8 text-center text-gray-400 text-sm">Loading invoices…</div>
+            ) : filtered.length === 0 ? (
+              <div className="p-8 text-center text-gray-400 text-sm">
+                No AP invoices yet. Submit and receive a PO to generate an invoice.
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    {['Vendor', 'Invoice #', 'Date', 'Due Date', 'Amount', 'Tax', 'PO #', 'Status', 'Actions'].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filtered.map(inv => (
+                    <tr key={inv.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium text-gray-900">{inv.vendor}</td>
+                      <td className="px-4 py-3 text-blue-600 font-mono text-xs">{inv.invoiceNo}</td>
+                      <td className="px-4 py-3 text-gray-500">{inv.date}</td>
+                      <td className="px-4 py-3 text-gray-500">{inv.dueDate}</td>
+                      <td className="px-4 py-3 font-semibold">{fmt(Number(inv.amount))}</td>
+                      <td className="px-4 py-3 text-gray-500">{fmt(Number(inv.tax))}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs text-green-600 font-medium">{inv.poNumber}</span>
+                      </td>
+                      <td className="px-4 py-3">{statusBadge(inv.status)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1">
+                          {inv.status === 'PENDING' && (
+                            <button className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded hover:bg-green-100">Pay</button>
+                          )}
+                          <button className="text-xs bg-gray-50 text-gray-600 border border-gray-200 px-2 py-1 rounded hover:bg-gray-100">
+                            <Eye className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </>
       )}

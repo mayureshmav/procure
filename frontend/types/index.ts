@@ -5,7 +5,7 @@ export interface AuthResponse {
   tokenType: string;
   expiresIn: number;
   username: string;
-  role: 'VENDOR_USER' | 'VENDOR_ADMIN' | 'SYSTEM_ADMIN';
+  role: 'VENDOR_USER' | 'VENDOR_ADMIN' | 'BUYER_USER' | 'BUYER_ADMIN' | 'SYSTEM_ADMIN' | 'SUPER_ADMIN';
   vendorId: number | null;
   vendorName: string | null;
   // ── Multi-tenant context (populated after V4 migration) ───────────────────

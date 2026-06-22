@@ -1,33 +1,32 @@
 package com.procurement.controller;
 
 import com.procurement.model.PurchaseOrder;
-import com.procurement.model.User;
+import com.procurement.model.VendorInboxEvent;
 import com.procurement.repository.PurchaseOrderRepository;
 import com.procurement.repository.UserRepository;
+import com.procurement.repository.VendorInboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Vendor Inbox — exposes POs that have been submitted/sent to the calling vendor.
- *
- * A vendor user logs in and sees all POs where vendor_id matches their linked vendor,
- * in status SUBMITTED, ACKNOWLEDGED, PARTIALLY_RECEIVED, RECEIVED, CLOSED, or CANCELLED.
- *
- * The response shape maps to the VendorInboxMessage interface on the frontend.
+ * Vendor Inbox — exposes POs sent to the calling vendor.
+ * Read/unread state is persisted in vendor_inbox_events table (V12 migration).
  */
 @RestController
 @RequestMapping("/api/vendor-inbox")
 @RequiredArgsConstructor
 public class VendorInboxController {
 
-    private final PurchaseOrderRepository poRepository;
-    private final UserRepository userRepository;
+    private final PurchaseOrderRepository      poRepository;
+    private final UserRepository               userRepository;
+    private final VendorInboxEventRepository   eventRepository;
 
     // ── List ─────────────────────────────────────────────────────────────────
 
@@ -38,13 +37,10 @@ public class VendorInboxController {
             @RequestParam(defaultValue = "20") int size) {
 
         Long vendorId = resolveVendorId();
-        if (vendorId == null) {
-            return ResponseEntity.ok(emptyPage());
-        }
+        if (vendorId == null) return ResponseEntity.ok(emptyPage());
 
         List<PurchaseOrder> allPos = poRepository.findByVendorId(vendorId);
 
-        // Only show POs that are beyond DRAFT (i.e. have been "sent" to the vendor)
         List<PurchaseOrder.PoStatus> visibleStatuses = List.of(
                 PurchaseOrder.PoStatus.SUBMITTED,
                 PurchaseOrder.PoStatus.ACKNOWLEDGED,
@@ -54,20 +50,40 @@ public class VendorInboxController {
                 PurchaseOrder.PoStatus.CANCELLED
         );
 
+        // Ensure inbox events exist for all visible POs (lazy-create UNREAD on first list)
+        for (PurchaseOrder po : allPos) {
+            if (visibleStatuses.contains(po.getStatus())) {
+                eventRepository.findByPoIdAndVendorId(po.getId(), vendorId)
+                        .orElseGet(() -> eventRepository.save(VendorInboxEvent.builder()
+                                .poId(po.getId())
+                                .vendorId(vendorId)
+                                .status("UNREAD")
+                                .build()));
+            }
+        }
+
+        // Fetch events map for fast lookup
+        Map<Long, VendorInboxEvent> eventMap = eventRepository.findByVendorId(vendorId).stream()
+                .collect(Collectors.toMap(VendorInboxEvent::getPoId, e -> e, (a, b) -> a));
+
         List<Map<String, Object>> messages = allPos.stream()
                 .filter(po -> visibleStatuses.contains(po.getStatus()))
-                .filter(po -> status == null || status.isBlank() || mapStatus(po).equals(status))
+                .filter(po -> {
+                    if (status == null || status.isBlank()) return true;
+                    VendorInboxEvent ev = eventMap.get(po.getId());
+                    String st = ev != null ? ev.getStatus() : "UNREAD";
+                    return st.equals(status);
+                })
                 .sorted(Comparator.comparing(
                         p -> p.getSubmittedAt() != null ? p.getSubmittedAt() : p.getCreatedAt(),
                         Comparator.reverseOrder()))
                 .skip((long) page * size)
                 .limit(size)
-                .map(this::toMessage)
+                .map(po -> toMessage(po, eventMap.get(po.getId())))
                 .collect(Collectors.toList());
 
         long total = allPos.stream()
                 .filter(po -> visibleStatuses.contains(po.getStatus()))
-                .filter(po -> status == null || status.isBlank() || mapStatus(po).equals(status))
                 .count();
 
         Map<String, Object> result = new LinkedHashMap<>();
@@ -76,6 +92,7 @@ public class VendorInboxController {
         result.put("totalPages", (int) Math.ceil((double) total / size));
         result.put("number", page);
         result.put("size", size);
+        result.put("unreadCount", eventRepository.countByVendorIdAndStatus(vendorId, "UNREAD"));
         return ResponseEntity.ok(result);
     }
 
@@ -83,20 +100,30 @@ public class VendorInboxController {
 
     @PatchMapping("/{id}/read")
     public ResponseEntity<Map<String, Object>> markRead(@PathVariable String id) {
-        PurchaseOrder po = poRepository.findById(Long.parseLong(id)).orElse(null);
+        Long poId = Long.parseLong(id);
+        PurchaseOrder po = poRepository.findById(poId).orElse(null);
         if (po == null) return ResponseEntity.notFound().build();
-        // In a real system this would write a read-receipt record.
-        // For now we just reflect the current state back as READ.
-        Map<String, Object> msg = toMessage(po);
-        msg.put("status", "READ");
-        return ResponseEntity.ok(msg);
+
+        Long vendorId = resolveVendorId();
+        if (vendorId != null) {
+            VendorInboxEvent ev = eventRepository.findByPoIdAndVendorId(poId, vendorId)
+                    .orElseGet(() -> VendorInboxEvent.builder().poId(poId).vendorId(vendorId).build());
+            if (!"ACKNOWLEDGED".equals(ev.getStatus())) {
+                ev.setStatus("READ");
+                ev.setReadAt(LocalDateTime.now());
+                eventRepository.save(ev);
+            }
+        }
+
+        return ResponseEntity.ok(toMessage(po, eventRepository.findByPoIdAndVendorId(poId, vendorId != null ? vendorId : -1L).orElse(null)));
     }
 
     // ── Acknowledge ───────────────────────────────────────────────────────────
 
     @PostMapping("/{id}/acknowledge")
     public ResponseEntity<Map<String, Object>> acknowledge(@PathVariable String id) {
-        PurchaseOrder po = poRepository.findById(Long.parseLong(id)).orElse(null);
+        Long poId = Long.parseLong(id);
+        PurchaseOrder po = poRepository.findById(poId).orElse(null);
         if (po == null) return ResponseEntity.notFound().build();
 
         if (po.getStatus() == PurchaseOrder.PoStatus.SUBMITTED) {
@@ -104,9 +131,17 @@ public class VendorInboxController {
             poRepository.save(po);
         }
 
-        Map<String, Object> msg = toMessage(po);
-        msg.put("status", "ACKNOWLEDGED");
-        return ResponseEntity.ok(msg);
+        Long vendorId = resolveVendorId();
+        if (vendorId != null) {
+            VendorInboxEvent ev = eventRepository.findByPoIdAndVendorId(poId, vendorId)
+                    .orElseGet(() -> VendorInboxEvent.builder().poId(poId).vendorId(vendorId).build());
+            ev.setStatus("ACKNOWLEDGED");
+            if (ev.getReadAt() == null) ev.setReadAt(LocalDateTime.now());
+            ev.setAckAt(LocalDateTime.now());
+            eventRepository.save(ev);
+        }
+
+        return ResponseEntity.ok(toMessage(po, eventRepository.findByPoIdAndVendorId(poId, vendorId != null ? vendorId : -1L).orElse(null)));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -118,16 +153,8 @@ public class VendorInboxController {
                 .orElse(null);
     }
 
-    /** Map PO status → inbox message status */
-    private String mapStatus(PurchaseOrder po) {
-        return switch (po.getStatus()) {
-            case SUBMITTED           -> "UNREAD";
-            case ACKNOWLEDGED        -> "ACKNOWLEDGED";
-            default                  -> "READ";
-        };
-    }
-
-    private Map<String, Object> toMessage(PurchaseOrder po) {
+    private Map<String, Object> toMessage(PurchaseOrder po, VendorInboxEvent event) {
+        String status = event != null ? event.getStatus() : "UNREAD";
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id",          String.valueOf(po.getId()));
         m.put("vendorId",    po.getVendor() != null ? po.getVendor().getId()   : null);
@@ -136,10 +163,14 @@ public class VendorInboxController {
         m.put("poNumber",    po.getPoNumber());
         m.put("subject",     "Purchase Order " + po.getPoNumber());
         m.put("type",        "PURCHASE_ORDER");
-        m.put("status",      mapStatus(po));
+        m.put("status",      status);
         m.put("sentAt",      po.getSubmittedAt() != null
                 ? po.getSubmittedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                 : po.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        m.put("readAt",      event != null && event.getReadAt() != null
+                ? event.getReadAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null);
+        m.put("ackAt",       event != null && event.getAckAt() != null
+                ? event.getAckAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null);
         m.put("totalAmount", po.getTotalAmount());
         m.put("currency",    po.getTaxCurrency() != null ? po.getTaxCurrency() : "USD");
         m.put("lineCount",   po.getLines() != null ? po.getLines().size() : 0);
@@ -155,7 +186,8 @@ public class VendorInboxController {
                 "totalElements", 0,
                 "totalPages", 0,
                 "number", 0,
-                "size", 20
+                "size", 20,
+                "unreadCount", 0
         );
     }
 }

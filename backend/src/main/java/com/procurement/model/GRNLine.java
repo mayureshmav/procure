@@ -15,10 +15,12 @@ public class GRNLine {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "grn_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"lines", "hibernateLazyInitializer"})
     private GRN grn;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "po_line_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"purchaseOrder", "hibernateLazyInitializer"})
     private PurchaseOrderLine purchaseOrderLine;
 
     private Integer receivedQty;

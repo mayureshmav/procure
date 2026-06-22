@@ -1,7 +1,10 @@
 package com.procurement.controller;
 
+import com.procurement.model.GRN;
+import com.procurement.model.PoDispatchLog;
 import com.procurement.model.PurchaseOrder;
 import com.procurement.model.PurchaseOrderLine;
+import com.procurement.service.PoDispatchService;
 import com.procurement.service.PurchaseOrderService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +19,7 @@ import java.util.Map;
 public class PurchaseOrderController {
 
     private final PurchaseOrderService poService;
+    private final PoDispatchService    dispatchService;
 
     @GetMapping
     public List<PurchaseOrder> getAll(@RequestParam(required = false) String status) {
@@ -61,6 +65,37 @@ public class PurchaseOrderController {
 
     @PostMapping("/{id}/cancel")
     public PurchaseOrder cancel(@PathVariable Long id) { return poService.cancel(id); }
+
+    @GetMapping("/{id}/grns")
+    public List<GRN> getGRNs(@PathVariable Long id) {
+        return poService.getGRNsForPO(id);
+    }
+
+    @GetMapping("/{id}/dispatch-log")
+    public List<PoDispatchLog> getDispatchLog(@PathVariable Long id) {
+        return dispatchService.getLogsForPO(id);
+    }
+
+    // ── Blanket PO Release endpoints ─────────────────────────────────────────
+
+    @PostMapping("/{id}/release")
+    public PurchaseOrder createRelease(@PathVariable Long id,
+                                       @RequestBody ReleaseRequest req) {
+        return poService.createRelease(id,
+                java.math.BigDecimal.valueOf(req.getAmount()),
+                req.getNotes());
+    }
+
+    @GetMapping("/{id}/releases")
+    public List<PurchaseOrder> getReleases(@PathVariable Long id) {
+        return poService.getReleasesForBlanket(id);
+    }
+
+    @Data
+    static class ReleaseRequest {
+        private double amount;
+        private String notes;
+    }
 
     /** Delete — only DRAFT POs; actually removes the record. */
     @DeleteMapping("/{id}")

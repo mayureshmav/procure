@@ -1,6 +1,12 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, XCircle, ChevronDown, ChevronRight, Info } from 'lucide-react';
+
+type GlTxn = {
+  id: string; date: string; reference: string; description: string;
+  account: string; type: string; amount: number; currency: string;
+  poType: string; status: string;
+};
 
 const fmt = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
 
@@ -52,7 +58,7 @@ const RANGES = [
 const typeColor = (t: string) => ({ Asset: 'bg-blue-100 text-blue-700', Liability: 'bg-red-100 text-red-700', Equity: 'bg-purple-100 text-purple-700', Revenue: 'bg-green-100 text-green-700', Expense: 'bg-amber-100 text-amber-700' }[t] ?? 'bg-gray-100 text-gray-600');
 const statusColor = (s: string) => ({ POSTED: 'bg-green-100 text-green-700', DRAFT: 'bg-gray-100 text-gray-600', REVERSED: 'bg-red-100 text-red-700' }[s] ?? '');
 
-const TABS = ['Chart of Accounts', 'Journal Entries', 'Range → Report Mapping'];
+const TABS = ['Chart of Accounts', 'PO Transactions', 'Journal Entries', 'Range → Report Mapping'];
 
 export default function GeneralLedgerPage() {
   const [tab, setTab] = useState(0);
@@ -61,6 +67,20 @@ export default function GeneralLedgerPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [showJE, setShowJE] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [glTxns, setGlTxns] = useState<GlTxn[]>([]);
+  const [glLoading, setGlLoading] = useState(false);
+
+  useEffect(() => {
+    if (tab !== 1) return;
+    setGlLoading(true);
+    const token = localStorage.getItem('token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    fetch('/api/finance/gl/transactions', { headers })
+      .then(r => r.json())
+      .then(data => setGlTxns(Array.isArray(data) ? data : []))
+      .catch(console.error)
+      .finally(() => setGlLoading(false));
+  }, [tab]);
 
   const filteredCOA = COA.filter(a =>
     (typeFilter === 'All' || a.type === typeFilter) &&
@@ -75,7 +95,7 @@ export default function GeneralLedgerPage() {
           <p className="text-sm text-gray-500 mt-0.5">Chart of accounts · Journal entries · Auto-populating report mapping</p>
         </div>
         {tab === 0 && <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"><Plus className="w-4 h-4" /> Add Account</button>}
-        {tab === 1 && <button onClick={() => setShowJE(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"><Plus className="w-4 h-4" /> New Entry</button>}
+        {tab === 2 && <button onClick={() => setShowJE(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"><Plus className="w-4 h-4" /> New Entry</button>}
       </div>
 
       <div className="flex gap-1 border-b border-gray-200 mb-6">
@@ -125,8 +145,44 @@ export default function GeneralLedgerPage() {
         </>
       )}
 
-      {/* TAB 1 — Journal Entries */}
+      {/* TAB 1 — PO Transactions (real data) */}
       {tab === 1 && (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          {glLoading ? (
+            <div className="p-8 text-center text-gray-400 text-sm">Loading GL transactions…</div>
+          ) : glTxns.length === 0 ? (
+            <div className="p-8 text-center text-gray-400 text-sm">No PO transactions yet. Submit a PO to generate GL entries.</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>{['Ref', 'Date', 'Description', 'Account', 'Type', 'Amount', 'PO Status'].map(h => (
+                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {glTxns.map(t => (
+                  <tr key={t.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-mono text-xs text-blue-600">{t.reference}</td>
+                    <td className="px-4 py-3 text-gray-500">{t.date}</td>
+                    <td className="px-4 py-3 text-gray-800 text-xs">{t.description}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-600">{t.account}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${t.type === 'DEBIT' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>{t.type}</span>
+                    </td>
+                    <td className="px-4 py-3 font-semibold">{new Intl.NumberFormat('en-US', { style: 'currency', currency: t.currency || 'USD' }).format(Number(t.amount))}</td>
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{t.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2 — Journal Entries (manual entries) */}
+      {tab === 2 && (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -166,8 +222,8 @@ export default function GeneralLedgerPage() {
         </div>
       )}
 
-      {/* TAB 2 — Range Mapping */}
-      {tab === 2 && (
+      {/* TAB 3 — Range Mapping */}
+      {tab === 3 && (
         <>
           <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 mb-4 text-sm text-green-800">
             <Info className="w-4 h-4 flex-shrink-0 text-green-600" />
