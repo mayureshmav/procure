@@ -74,7 +74,7 @@ export default function GeneralLedgerPage() {
     if (tab !== 1) return;
     setGlLoading(true);
     const token = localStorage.getItem('token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     fetch('/api/finance/gl/transactions', { headers })
       .then(r => r.json())
       .then(data => setGlTxns(Array.isArray(data) ? data : []))

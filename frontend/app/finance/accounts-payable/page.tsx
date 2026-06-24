@@ -63,7 +63,7 @@ export default function AccountsPayablePage() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     Promise.all([
       fetch('/api/finance/ap/invoices', { headers }).then(r => r.json()),
       fetch('/api/finance/ap/summary',  { headers }).then(r => r.json()),
